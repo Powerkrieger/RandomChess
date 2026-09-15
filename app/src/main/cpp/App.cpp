@@ -22,6 +22,8 @@ constexpr Vector4 kWhiteTurn{1.f, 1.f, 1.f, 1.f};
 constexpr Vector4 kBlackTurn{0.12f, 0.12f, 0.12f, 1.f};
 
 constexpr float kMargin = 0.06f;
+// Extra space above the header so it clears the camera cutout in immersive mode.
+constexpr float kTopInset = 0.14f;
 
 constexpr const char *kStatsFile = "results.tsv";
 
@@ -163,7 +165,14 @@ void App::perform(Action action) {
             screen_ = Screen::Menu;
             break;
         case Action::History:
+            historyPage_ = 0;
             screen_ = Screen::History;
+            break;
+        case Action::HistoryNewer:
+            historyPage_ = std::max(0, historyPage_ - 1);
+            break;
+        case Action::HistoryOlder:
+            ++historyPage_;
             break;
     }
 }
@@ -253,7 +262,7 @@ void App::drawMenu(Canvas &canvas) {
     const float hh = canvas.halfHeight();
     const float width = std::min(2.f * hw, 2.f * hh) - 2.f * kMargin;
 
-    canvas.text(0.f, hh * 0.55f, 0.28f, "SHOGUN", kText, Align::Center);
+    canvas.text(0.f, hh * 0.55f - kTopInset * 0.5f, 0.28f, "SHOGUN", kText, Align::Center);
     canvas.text(0.f, hh * 0.55f - 0.28f, 0.08f, "the number says how far you go", kMutedText,
                 Align::Center);
 
@@ -299,58 +308,106 @@ void App::drawHistory(Canvas &canvas) {
     const float hw = canvas.halfWidth();
     const float hh = canvas.halfHeight();
     const float left = -hw + kMargin;
-    const float width = 2.f * hw - 2.f * kMargin;
+    const float right = hw - kMargin;
+    const float width = right - left;
+    const float pad = 0.06f;
 
-    const float headerY = hh - kMargin - 0.11f;
+    // --- header --------------------------------------------------------------------------------
+    const float headerY = hh - kTopInset - 0.11f;
     canvas.text(left, headerY, 0.14f, "RESULTS", kText);
-    button(canvas, Rect{hw - kMargin - 0.21f, headerY, 0.42f, 0.2f}, Action::Menu, "Back",
-           false, 0.08f);
+    button(canvas, Rect{right - 0.21f, headerY, 0.42f, 0.2f}, Action::Menu, "Back", false, 0.08f);
 
+    // --- summary: two columns of label/value pairs in a panel ---------------------------------
     const Stats::Summary s = stats_.summary();
-    const float textH = 0.085f;
-    const float rowH = 0.14f;
-    float y = headerY - 0.32f;
+    const float textH = 0.075f;
+    const float rowH = 0.12f;
+    const Rect summary{0.f, headerY - 0.2f - (4 * rowH + 2 * pad) * 0.5f, width, 4 * rowH + 2 * pad};
+    canvas.quad(summary, kPanel);
 
-    auto line = [&](const std::string &label, const std::string &value) {
-        canvas.text(left, y, textH, label, kMutedText);
-        canvas.text(left + width, y, textH, value, kText, Align::Right);
-        y -= rowH;
+    const float colW = (width - 2 * pad) * 0.5f;
+    auto cell = [&](int column, int row, const std::string &label, const std::string &value) {
+        const float x = summary.left() + pad + column * colW;
+        const float y = summary.top() - pad - textH * 0.5f - row * rowH;
+        canvas.text(x, y, textH, label, kMutedText);
+        canvas.text(x + colW - 0.1f, y, textH, value, kText, Align::Right);
     };
-    line("You vs computer", s.vsComputer.text());
-    line("  as White", s.asWhite.text());
-    line("  as Black", s.asBlack.text());
-    line("  Easy", s.easy.text());
-    line("  Normal", s.normal.text());
-    line("  Hard", s.hard.text());
-    line("2 players: White - Black",
+    cell(0, 0, "vs computer", s.vsComputer.text());
+    cell(0, 1, "  as White", s.asWhite.text());
+    cell(0, 2, "  as Black", s.asBlack.text());
+    cell(0, 3, "2 players W-B",
          std::to_string(s.twoPlayerWhiteWins) + " - " + std::to_string(s.twoPlayerBlackWins));
+    cell(1, 0, "by strength", "");
+    cell(1, 1, "  Easy", s.easy.text());
+    cell(1, 2, "  Normal", s.normal.text());
+    cell(1, 3, "  Hard", s.hard.text());
 
-    // recent games, newest first, two lines each
-    y -= 0.08f;
-    canvas.text(left, y, textH, "Recent games", kMutedText);
-    y -= rowH;
+    // --- games table, newest first, paged ------------------------------------------------------
+    const float navY = -hh + kMargin + 0.11f;
+    const Rect table{0.f, (summary.bottom() - kMargin + navY + 0.14f) * 0.5f, width,
+                     summary.bottom() - kMargin - (navY + 0.14f)};
+    canvas.quad(table, kPanel);
 
+    const float lineH = 0.105f;
+    const int gamesPerPage = std::max(1, static_cast<int>((table.h - 2 * pad - 0.1f) / lineH));
     const auto &records = stats_.records();
+    const int pages = std::max(1, (static_cast<int>(records.size()) + gamesPerPage - 1) / gamesPerPage);
+    historyPage_ = std::min(historyPage_, pages - 1);
+
+    // fixed-width columns (monospace font): glyph advance decides the x positions
+    const float smallH = 0.062f;
+    const float adv = Canvas::textWidth(smallH, 2) - Canvas::textWidth(smallH, 1);
+    const float x0 = table.left() + pad;
+    const float xDate = x0;
+    const float xWinner = x0 + adv * 7;
+    const float xLevel = x0 + adv * 21;
+    const float xStart = x0 + adv * 29;
+    const float xMoves = table.right() - pad;
+
+    float y = table.top() - pad - smallH * 0.5f;
+    canvas.text(xDate, y, smallH, "Date", kMutedText);
+    canvas.text(xWinner, y, smallH, "Winner", kMutedText);
+    canvas.text(xLevel, y, smallH, "Level", kMutedText);
+    canvas.text(xStart, y, smallH, "Start W / B", kMutedText);
+    canvas.text(xMoves, y, smallH, "Moves", kMutedText, Align::Right);
+    y -= 0.1f;
+
     if (records.empty()) {
-        canvas.text(left, y, textH, "none yet", kText);
-        return;
+        canvas.text(table.cx, y - 0.1f, textH, "no games played yet", kMutedText, Align::Center);
     }
 
-    const float smallH = 0.07f;
-    const float entryH = 0.22f;
-    for (auto it = records.rbegin(); it != records.rend() && y - entryH > -hh; ++it) {
-        const GameRecord &r = *it;
-        const std::string winnerName = r.winner == "White" ? r.white : r.black;
-        std::string headline = r.date.substr(5) + "  " + winnerName + " won as " + r.winner;
-        if (r.difficulty != "-") {
-            headline += "  (" + r.difficulty + ")";
+    const int first = static_cast<int>(records.size()) - 1 - historyPage_ * gamesPerPage;
+    const int last = std::max(-1, first - gamesPerPage);
+    for (int i = first; i > last && y - lineH * 0.5f > table.bottom(); --i) {
+        const GameRecord &r = records[i];
+        const bool whiteWon = r.winner == "White";
+        const std::string winner = (whiteWon ? r.white : r.black) + (whiteWon ? " (W)" : " (B)");
+        const std::string level = r.difficulty == "-" ? "2 pl." : r.difficulty;
+        std::string start = r.startSetup;
+        const auto slash = start.find('/');
+        if (slash != std::string::npos) {
+            start = start.substr(0, slash) + " " + start.substr(slash + 1);
         }
-        canvas.text(left, y, smallH, headline, kText);
-        y -= 0.1f;
 
-        std::string detail = "start " + r.startSetup + "   " + std::to_string(r.moves) + " moves";
-        canvas.text(left + 0.05f, y, smallH, detail, kMutedText);
-        y -= entryH - 0.1f;
+        canvas.text(xDate, y, smallH, r.date.substr(5, 5), kMutedText);
+        canvas.text(xWinner, y, smallH, winner, kText);
+        canvas.text(xLevel, y, smallH, level, kText);
+        canvas.text(xStart, y, smallH, start, kText);
+        canvas.text(xMoves, y, smallH, std::to_string(r.moves), kMutedText, Align::Right);
+        y -= lineH;
+    }
+
+    // --- paging --------------------------------------------------------------------------------
+    canvas.text(0.f, navY, textH,
+                std::to_string(records.size()) + " games  -  page " +
+                std::to_string(historyPage_ + 1) + "/" + std::to_string(pages),
+                kMutedText, Align::Center);
+    if (historyPage_ > 0) {
+        button(canvas, Rect{left + 0.21f, navY, 0.42f, 0.2f}, Action::HistoryNewer, "Newer",
+               false, 0.08f);
+    }
+    if (historyPage_ < pages - 1) {
+        button(canvas, Rect{right - 0.21f, navY, 0.42f, 0.2f}, Action::HistoryOlder, "Older",
+               false, 0.08f);
     }
 }
 
@@ -370,7 +427,7 @@ void App::drawGame(Canvas &canvas) {
     const bool flipped = opponent_ == Opponent::Computer && humanSide_ == Color::Black;
 
     // --- layout -------------------------------------------------------------------------------
-    const float headerH = 0.5f;
+    const float headerH = 0.5f + kTopInset - kMargin;
     Rect boardArea;
     Rect panelArea;
     if (canvas.isPortrait()) {
@@ -386,7 +443,7 @@ void App::drawGame(Canvas &canvas) {
     }
 
     // --- header: title, status, buttons ------------------------------------------------------
-    const float headerY = hh - kMargin - 0.11f;
+    const float headerY = hh - kTopInset - 0.11f;
     canvas.text(-hw + kMargin, headerY, 0.14f, "SHOGUN", kText);
     const float buttonW = 0.42f;
     button(canvas, Rect{hw - kMargin - buttonW * 0.5f, headerY, buttonW, 0.2f}, Action::Menu,

@@ -45,7 +45,7 @@ private:
     enum class Action {
         PlayWhite, PlayBlack, TwoPlayers,
         Easy, Normal, Hard,
-        Start, Menu, NewGame, History
+        Start, Menu, NewGame, History, HistoryNewer, HistoryOlder
     };
 
     struct Button {
@@ -97,6 +97,7 @@ private:
     Stats stats_;
     std::string startSetup_;     // starting numbers of the running game
     bool resultRecorded_ = false;
+    int historyPage_ = 0;        // 0 = newest games
 
     // computer opponent
     chess::ShogunAi ai_;
