@@ -16,3 +16,4 @@ app/build
 .externalNativeBuild
 .cxx
 *.jks
+*.env
