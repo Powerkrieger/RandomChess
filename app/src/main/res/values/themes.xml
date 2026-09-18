@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Full-screen game: no action bar, dark background matching the GL clear colour. -->
-    <style name="Theme.RandomChess" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.RandomChess" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/background</item>
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
