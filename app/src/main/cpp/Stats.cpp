@@ -1,5 +1,6 @@
 #include "Stats.h"
 
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 
@@ -20,14 +21,26 @@ bool Stats::load(const std::string &path) {
 }
 
 bool Stats::save(const std::string &path) const {
-    std::ofstream out(path, std::ios::trunc);
-    if (!out) {
+    // Write to a temp file and rename it over the old one, so the app being killed mid-write
+    // leaves the previous history intact instead of a truncated file.
+    const std::string tmp = path + ".tmp";
+    {
+        std::ofstream out(tmp, std::ios::trunc);
+        if (!out) {
+            return false;
+        }
+        for (const auto &record: records_) {
+            out << toLine(record) << '\n';
+        }
+        if (!out) {
+            return false;
+        }
+    }
+    if (std::rename(tmp.c_str(), path.c_str()) != 0) {
+        std::remove(tmp.c_str());
         return false;
     }
-    for (const auto &record: records_) {
-        out << toLine(record) << '\n';
-    }
-    return static_cast<bool>(out);
+    return true;
 }
 
 std::string Stats::toLine(const GameRecord &r) {
