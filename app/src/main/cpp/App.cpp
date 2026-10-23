@@ -1,6 +1,7 @@
 #include "App.h"
 
 #include <algorithm>
+#include <cstring>
 #include <ctime>
 
 #include "AndroidOut.h"
@@ -24,6 +25,7 @@ constexpr Vector4 kBlackTurn{0.12f, 0.12f, 0.12f, 1.f};
 constexpr float kMargin = 0.06f;
 // Extra space above the header so it clears the camera cutout in immersive mode.
 constexpr float kTopInset = 0.14f;
+constexpr const char *kTitle = "RandomChess";
 
 constexpr const char *kStatsFile = "results.tsv";
 
@@ -262,7 +264,8 @@ void App::drawMenu(Canvas &canvas) {
     const float hh = canvas.halfHeight();
     const float width = std::min(2.f * hw, 2.f * hh) - 2.f * kMargin;
 
-    canvas.text(0.f, hh * 0.55f - kTopInset * 0.5f, 0.28f, "SHOGUN", kText, Align::Center);
+    const float titleH = std::min(0.28f, width / Canvas::textWidth(1.f, std::strlen(kTitle)));
+    canvas.text(0.f, hh * 0.55f - kTopInset * 0.5f, titleH, kTitle, kText, Align::Center);
     canvas.text(0.f, hh * 0.55f - 0.28f, 0.08f, "the number says how far you go", kMutedText,
                 Align::Center);
 
@@ -444,8 +447,12 @@ void App::drawGame(Canvas &canvas) {
 
     // --- header: title, status, buttons ------------------------------------------------------
     const float headerY = hh - kTopInset - 0.11f;
-    canvas.text(-hw + kMargin, headerY, 0.14f, "SHOGUN", kText);
     const float buttonW = 0.42f;
+    // Title shrinks on narrow screens so it never runs into the two buttons on the right.
+    const float titleRoom = 2.f * hw - 2.f * kMargin - 2.f * buttonW - 0.08f;
+    const float headerTitleH =
+        std::min(0.14f, titleRoom / Canvas::textWidth(1.f, std::strlen(kTitle)));
+    canvas.text(-hw + kMargin, headerY, headerTitleH, kTitle, kText);
     button(canvas, Rect{hw - kMargin - buttonW * 0.5f, headerY, buttonW, 0.2f}, Action::Menu,
            "Menu", false, 0.08f);
     button(canvas, Rect{hw - kMargin - buttonW * 1.5f - 0.04f, headerY, buttonW, 0.2f},

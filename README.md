@@ -1,6 +1,6 @@
-# Shogun (RandomChess)
+# RandomChess
 
-Android version of Ravensburger's *Shogun* (1979), the magnetic board game where every piece
+Plays like Ravensburger's *Shogun* (1979), the magnetic board game where every piece
 carries a number that decides how far it moves. Native C++ / OpenGL ES app built on the
 Android Game Activity template, with a computer opponent.
 
