@@ -60,3 +60,7 @@ To build a signed release locally, set those four environment variables (pointin
 ## AI notice
 
 Project scaffolding, CI pipeline and large parts of the app were built with Claude Code.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
