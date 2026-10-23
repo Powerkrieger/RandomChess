@@ -1,4 +1,4 @@
-package com.example.randomchess
+package de.powerizzle.randomchess
 
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat

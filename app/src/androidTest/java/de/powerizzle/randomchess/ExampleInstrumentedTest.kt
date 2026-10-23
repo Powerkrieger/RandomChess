@@ -1,4 +1,4 @@
-package com.example.randomchess
+package de.powerizzle.randomchess
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.example.randomchess", appContext.packageName)
+        assertEquals("de.powerizzle.randomchess", appContext.packageName)
     }
 }

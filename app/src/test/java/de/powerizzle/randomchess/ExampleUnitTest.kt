@@ -1,4 +1,4 @@
-package com.example.randomchess
+package de.powerizzle.randomchess
 
 import org.junit.Test
 
